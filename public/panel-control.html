@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - Pasapalabras</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .game-id {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .game-links {
+            display: flex;
+            gap: 10px;
+        }
+
+        .letter-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .letter-button {
+            padding: 15px;
+            font-size: 18px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .pending {
+            background-color: #f0f0f0;
+        }
+
+        .current {
+            background-color: #ffeb3b;
+        }
+
+        .correct {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .incorrect {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .action-buttons button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .copy-link {
+            padding: 8px 12px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .error-container {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .error-container h2 {
+            color: #f44336;
+        }
+
+        .error-container input {
+            padding: 10px;
+            font-size: 16px;
+            width: 200px;
+            margin-right: 10px;
+        }
+
+        .error-container button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container" id="mainContainer">
+        <div id="errorContainer" class="error-container" style="display: none;">
+            <h2>No se ha especificado un ID de juego</h2>
+            <p>Por favor, introduce un ID para crear o unirte a un juego:</p>
+            <div>
+                <input type="text" id="gameIdInput" placeholder="ID del juego">
+                <button id="joinGameBtn">Acceder</button>
+            </div>
+        </div>
+
+        <div id="gameContainer" style="display: none;">
+            <div class="game-header">
+                <div class="game-id">Juego: <span id="currentGameId"></span></div>
+                <div class="game-links">
+                    <button id="copyControlLink" class="copy-link">Copiar enlace del panel</button>
+                    <button id="copyOBSLink" class="copy-link">Copiar enlace para OBS</button>
+                </div>
+            </div>
+
+            <div class="letter-grid" id="letterGrid"></div>
+
+            <h3>Letra actual: <span id="currentLetter">Ninguna</span></h3>
+
+            <div class="action-buttons">
+                <button id="correctBtn" disabled>Correcta</button>
+                <button id="incorrectBtn" disabled>Incorrecta</button>
+                <button id="resetBtn">Reiniciar Juego</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let gameId = null;
+        let gameState = {};
+
+        // Elementos DOM
+        const errorContainer = document.getElementById('errorContainer');
+        const gameContainer = document.getElementById('gameContainer');
+        const gameIdInput = document.getElementById('gameIdInput');
+        const joinGameBtn = document.getElementById('joinGameBtn');
+        const currentGameIdSpan = document.getElementById('currentGameId');
+        const copyControlLink = document.getElementById('copyControlLink');
+        const copyOBSLink = document.getElementById('copyOBSLink');
+        const letterGrid = document.getElementById('letterGrid');
+        const currentLetterSpan = document.getElementById('currentLetter');
+        const correctBtn = document.getElementById('correctBtn');
+        const incorrectBtn = document.getElementById('incorrectBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Obtener el ID del juego desde la URL
+        function getGameIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+
+        // Configurar la página basada en el ID del juego
+        function setupPage() {
+            gameId = getGameIdFromUrl();
+
+            if (gameId) {
+                // Si tenemos un ID, unirse al juego
+                socket.emit('joinGame', gameId);
+                currentGameIdSpan.textContent = gameId;
+                gameContainer.style.display = 'block';
+                errorContainer.style.display = 'none';
+                document.title = `Panel de Control - Pasapalabras (${gameId})`;
+            } else {
+                // Si no hay ID, mostrar formulario para ingresar uno
+                gameContainer.style.display = 'none';
+                errorContainer.style.display = 'block';
+            }
+        }
+
+        // Unirse a un juego con el ID ingresado
+        joinGameBtn.onclick = () => {
+            const newGameId = gameIdInput.value.trim();
+            if (newGameId) {
+                window.location.href = `?id=${encodeURIComponent(newGameId)}`;
+            }
+        };
+
+        // También permitir unirse presionando Enter
+        gameIdInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                joinGameBtn.click();
+            }
+        });
+
+        // Copiar enlaces
+        copyControlLink.onclick = () => {
+            const url = `${window.location.origin}/panel-control.html?id=${encodeURIComponent(gameId)}`;
+            navigator.clipboard.writeText(url)
+                .then(() => alert('Enlace del panel copiado al portapapeles'))
+                .catch(err => console.error('Error al copiar: ', err));
+        };
+
+        copyOBSLink.onclick = () => {
+            const url = `${window.location.origin}/obs-widget.html?id=${encodeURIComponent(gameId)}`;
+            navigator.clipboard.writeText(url)
+                .then(() => alert('Enlace para OBS copiado al portapapeles'))
+                .catch(err => console.error('Error al copiar: ', err));
+        };
+
+        // Inicializar la cuadrícula de letras
+        function initializeLetterGrid() {
+            const letters = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
+            letterGrid.innerHTML = '';
+
+            letters.split('').forEach(letter => {
+                const letterBtn = document.createElement('div');
+                letterBtn.className = `letter-button pending`;
+                letterBtn.textContent = letter;
+                letterBtn.dataset.letter = letter;
+                letterBtn.onclick = () => {
+                    if (gameState.letters && gameState.letters[letter].status === 'pending') {
+                        socket.emit('nextLetter', { gameId, letter });
+                    }
+                };
+                letterGrid.appendChild(letterBtn);
+            });
+        }
+
+        // Actualizar la interfaz basada en el estado del juego
+        function updateUI() {
+            if (!gameState || !gameState.letters) return;
+
+            // Actualizar botones de letras
+            document.querySelectorAll('.letter-button').forEach(btn => {
+                const letter = btn.dataset.letter;
+                if (gameState.letters[letter]) {
+                    btn.className = `letter-button ${gameState.letters[letter].status}`;
+                }
+            });
+
+            // Actualizar letra actual
+            if (gameState.currentLetter) {
+                currentLetterSpan.textContent = gameState.currentLetter;
+                correctBtn.disabled = false;
+                incorrectBtn.disabled = false;
+            } else {
+                currentLetterSpan.textContent = 'Ninguna';
+                correctBtn.disabled = true;
+                incorrectBtn.disabled = true;
+            }
+        }
+
+        // Eventos de los botones de acción
+        correctBtn.onclick = () => {
+            if (gameState.currentLetter) {
+                socket.emit('correctLetter', {
+                    gameId,
+                    letter: gameState.currentLetter
+                });
+            }
+        };
+
+        incorrectBtn.onclick = () => {
+            if (gameState.currentLetter) {
+                socket.emit('incorrectLetter', {
+                    gameId,
+                    letter: gameState.currentLetter
+                });
+            }
+        };
+
+        resetBtn.onclick = () => {
+            socket.emit('resetGame', gameId);
+        };
+
+        // WebSocket event listeners
+        socket.on('gameState', (state) => {
+            gameState = state;
+            updateUI();
+        });
+
+        socket.on('error', (message) => {
+            alert(`Error: ${message}`);
+        });
+
+        // Inicializar
+        setupPage();
+        initializeLetterGrid();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,201 @@
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasapalabras - OBS Widget</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: transparent;
+            font-family: Arial, sans-serif;
+        }
+
+        .rosco-container {
+            width: 500px;
+            height: 500px;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .letter-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            font-weight: bold;
+            font-size: 20px;
+            color: white;
+            text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+        }
+
+        .pending {
+            background-color: #2196F3;
+            border: 2px solid #1976D2;
+        }
+
+        .current {
+            background-color: #FFEB3B;
+            color: black;
+            border: 2px solid #FDD835;
+            animation: pulse 1s infinite;
+        }
+
+        .correct {
+            background-color: #4CAF50;
+            border: 2px solid #388E3C;
+        }
+
+        .incorrect {
+            background-color: #F44336;
+            border: 2px solid #D32F2F;
+        }
+
+        .game-title {
+            text-align: center;
+            margin-top: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameTitle" class="game-title" style="display: none;"></div>
+    <div class="rosco-container" id="rosco"></div>
+    <div id="errorMessage" class="error-message" style="display: none;">
+        No se ha especificado un ID de juego.
+        <br>
+        Usa: <span id="correctUrl"></span>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let gameState = {};
+        let gameId = null;
+
+        // Elementos DOM
+        const gameTitle = document.getElementById('gameTitle');
+        const rosco = document.getElementById('rosco');
+        const errorMessage = document.getElementById('errorMessage');
+        const correctUrl = document.getElementById('correctUrl');
+
+        // Obtener el ID del juego desde la URL
+        function getGameIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+
+        // Configurar la página basada en el ID del juego
+        function setupPage() {
+            gameId = getGameIdFromUrl();
+
+            if (gameId) {
+                socket.emit('joinGame', gameId);
+                gameTitle.textContent = `Pasapalabra: ${gameId}`;
+                gameTitle.style.display = 'inline-block';
+                errorMessage.style.display = 'none';
+                document.title = `Pasapalabras - ${gameId}`;
+                createRosco();
+            } else {
+                errorMessage.style.display = 'block';
+                correctUrl.textContent = `${window.location.origin}/obs-widget.html?id=NOMBRE_DEL_JUEGO`;
+            }
+        }
+
+        // Crear el rosco
+        function createRosco() {
+            rosco.innerHTML = '';
+            const letters = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
+            const totalLetters = letters.length;
+            const radius = 230;
+            const centerX = 250;
+            const centerY = 250;
+
+            letters.split('').forEach((letter, index) => {
+                // Calcular la posición en el círculo
+                const angle = (index / totalLetters) * 2 * Math.PI;
+                const x = centerX + radius * Math.sin(angle);
+                const y = centerY - radius * Math.cos(angle);
+
+                // Crear elemento para la letra
+                const letterElem = document.createElement('div');
+                letterElem.className = 'letter-circle pending';
+                letterElem.textContent = letter;
+
+                // El ID incluye el ID del juego para manejar múltiples roscos
+                letterElem.id = `letter-${gameId}-${letter}`;
+
+                // Posicionar la letra
+                letterElem.style.left = `${x - 20}px`;
+                letterElem.style.top = `${y - 20}px`;
+
+                rosco.appendChild(letterElem);
+            });
+        }
+
+        // Actualizar la visualización del rosco
+        function updateRosco() {
+            if (!gameState || !gameState.letters) return;
+
+            Object.keys(gameState.letters).forEach(letter => {
+                const letterId = `letter-${gameState.id}-${letter}`;
+                const letterElem = document.getElementById(letterId);
+
+                if (letterElem) {
+                    letterElem.className = `letter-circle ${gameState.letters[letter].status}`;
+                }
+            });
+        }
+
+        // Eventos de socket
+        socket.on('gameState', (state) => {
+            gameState = state;
+            updateRosco();
+        });
+
+        // Inicializar
+        setupPage();
+    </script>
+</body>
+
+</html>
