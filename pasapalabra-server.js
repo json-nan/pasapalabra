@@ -22,7 +22,7 @@ function createNewGame(gameId) {
   };
   
   // Inicializar todas las letras del abecedario
-  'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('').forEach(letter => {
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
     newGame.letters[letter] = {
       status: 'pending', // pending, correct, incorrect, current
       id: `letter-${gameId}-${letter}`
