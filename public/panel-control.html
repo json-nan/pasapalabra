@@ -143,6 +143,8 @@
             <h3>Letra actual: <span id="currentLetter">Ninguna</span></h3>
 
             <div class="action-buttons">
+                <button id="startGameBtn">Iniciar Juego</button>
+                <button id="pauseGameBtn" disabled>Pausar Juego</button>
                 <button id="correctBtn" disabled>Correcta</button>
                 <button id="incorrectBtn" disabled>Incorrecta</button>
                 <button id="resetBtn">Reiniciar Juego</button>
@@ -166,6 +168,8 @@
         const copyOBSLink = document.getElementById('copyOBSLink');
         const letterGrid = document.getElementById('letterGrid');
         const currentLetterSpan = document.getElementById('currentLetter');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const pauseGameBtn = document.getElementById('pauseGameBtn');
         const correctBtn = document.getElementById('correctBtn');
         const incorrectBtn = document.getElementById('incorrectBtn');
         const resetBtn = document.getElementById('resetBtn');
@@ -236,6 +240,8 @@
                 letterBtn.dataset.letter = letter;
                 letterBtn.onclick = () => {
                     if (gameState.letters && gameState.letters[letter].status === 'pending') {
+                        // Al hacer clic en una letra, se envía el evento nextLetter
+                        // que automáticamente reanudará el temporizador si estaba pausado
                         socket.emit('nextLetter', { gameId, letter });
                     }
                 };
@@ -286,14 +292,37 @@
             }
         };
 
+        startGameBtn.onclick = () => {
+            socket.emit('startGame', gameId);
+            startGameBtn.disabled = true; // Disable start button
+            pauseGameBtn.disabled = false; // Enable pause button
+        };
+
+        pauseGameBtn.onclick = () => {
+            socket.emit('pauseGame', gameId);
+            pauseGameBtn.disabled = true; // Disable pause button
+            startGameBtn.disabled = false; // Enable start button (now acts as resume)
+        };
+
         resetBtn.onclick = () => {
             socket.emit('resetGame', gameId);
+            startGameBtn.disabled = false; // Re-enable start button after reset
+            pauseGameBtn.disabled = true; // Disable pause button after reset
         };
 
         // WebSocket event listeners
         socket.on('gameState', (state) => {
             gameState = state;
             updateUI();
+            
+            // Update button states based on timer state
+            if (gameState.timerRunning) {
+                startGameBtn.disabled = true;
+                pauseGameBtn.disabled = false;
+            } else {
+                startGameBtn.disabled = false; // Enable start button (acts as resume)
+                pauseGameBtn.disabled = true;
+            }
         });
 
         socket.on('error', (message) => {

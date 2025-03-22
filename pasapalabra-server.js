@@ -18,7 +18,9 @@ function createNewGame(gameId) {
   const newGame = {
     id: gameId,
     currentLetter: null,
-    letters: {}
+    letters: {},
+    timerSeconds: 4 * 60, // 5 minutes in seconds
+    timerRunning: false // Default: timer not running until game is started
   };
   
   // Inicializar todas las letras del abecedario
@@ -60,6 +62,11 @@ io.on('connection', (socket) => {
     games[gameId].currentLetter = letter;
     games[gameId].letters[letter].status = 'current';
     
+    // Si el temporizador estaba pausado, reanudar
+    if (!games[gameId].timerRunning) {
+      games[gameId].timerRunning = true;
+    }
+    
     // Emitir a todos los clientes subscritos a este juego
     io.to(gameId).emit('gameState', games[gameId]);
   });
@@ -80,10 +87,31 @@ io.on('connection', (socket) => {
     
     games[gameId].letters[letter].status = 'incorrect';
     games[gameId].currentLetter = null;
+    games[gameId].timerRunning = false; // Pause the timer
     
     io.to(gameId).emit('gameState', games[gameId]);
   });
   
+  // Evento para actualizar el tiempo restante
+  socket.on('updateTimerSeconds', ({gameId, seconds}) => {
+    if (!games[gameId]) return;
+    games[gameId].timerSeconds = seconds;
+  });
+
+  // Evento para iniciar el juego (inicia el temporizador)
+  socket.on('startGame', (gameId) => {
+    if (!games[gameId]) return;
+    games[gameId].timerRunning = true;
+    io.to(gameId).emit('gameState', games[gameId]);
+  });
+
+  // Evento para pausar el juego (pausa el temporizador)
+  socket.on('pauseGame', (gameId) => {
+    if (!games[gameId]) return;
+    games[gameId].timerRunning = false;
+    io.to(gameId).emit('gameState', games[gameId]);
+  });
+
   // Evento para reiniciar un juego específico
   socket.on('resetGame', (gameId) => {
     if (!games[gameId]) return;
@@ -92,6 +120,8 @@ io.on('connection', (socket) => {
       games[gameId].letters[letter].status = 'pending';
     });
     games[gameId].currentLetter = null;
+    games[gameId].timerSeconds = 4 * 60; // Reset to 5 minutes
+    games[gameId].timerRunning = true;
     
     io.to(gameId).emit('gameState', games[gameId]);
   });

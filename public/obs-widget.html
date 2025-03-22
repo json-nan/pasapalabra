@@ -17,7 +17,7 @@
             width: 500px;
             height: 500px;
             position: relative;
-            margin: 0 auto;
+            margin: 60px auto;
         }
 
         .letter-circle {
@@ -82,6 +82,27 @@
             text-align: center;
         }
 
+        .timer-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .timer-warning {
+            color: #ff9800;
+        }
+
+        .timer-danger {
+            color: #f44336;
+            animation: pulse 1s infinite;
+        }
+
         @keyframes pulse {
             0% {
                 transform: scale(1);
@@ -101,6 +122,7 @@
 <body>
     <div id="gameTitle" class="game-title" style="display: none;"></div>
     <div class="rosco-container" id="rosco"></div>
+    <div id="timerContainer" class="timer-container" style="display: none;">04:00</div>
     <div id="errorMessage" class="error-message" style="display: none;">
         No se ha especificado un ID de juego.
         <br>
@@ -112,12 +134,14 @@
         const socket = io();
         let gameState = {};
         let gameId = null;
+        let timerInterval = null;
 
         // Elementos DOM
         const gameTitle = document.getElementById('gameTitle');
         const rosco = document.getElementById('rosco');
         const errorMessage = document.getElementById('errorMessage');
         const correctUrl = document.getElementById('correctUrl');
+        const timerContainer = document.getElementById('timerContainer');
 
         // Obtener el ID del juego desde la URL
         function getGameIdFromUrl() {
@@ -134,6 +158,7 @@
                 gameTitle.textContent = `Pasapalabra: ${gameId}`;
                 gameTitle.style.display = 'inline-block';
                 errorMessage.style.display = 'none';
+                timerContainer.style.display = 'block';
                 document.title = `Pasapalabras - ${gameId}`;
                 createRosco();
             } else {
@@ -187,10 +212,76 @@
             });
         }
 
+        // Funciones del temporizador
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function resetTimer() {
+            // This is now handled by the server
+            pauseTimer();
+            updateTimerDisplay();
+        }
+
+        function updateTimer() {
+            if (!gameState || gameState.timerSeconds <= 0) {
+                pauseTimer();
+                return;
+            }
+            
+            // Decrease timer only if it's running
+            if (gameState.timerRunning) {
+                gameState.timerSeconds--;
+                // Update server with new time
+                socket.emit('updateTimerSeconds', {
+                    gameId,
+                    seconds: gameState.timerSeconds
+                });
+            }
+            
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            if (!gameState) return;
+            
+            const minutes = Math.floor(gameState.timerSeconds / 60);
+            const seconds = gameState.timerSeconds % 60;
+            const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            timerContainer.textContent = formattedTime;
+            
+            // Add visual indicators when time is running low
+            if (gameState.timerSeconds <= 60) { // Last minute
+                timerContainer.className = 'timer-container timer-danger';
+            } else if (gameState.timerSeconds <= 120) { // Last 2 minutes
+                timerContainer.className = 'timer-container timer-warning';
+            } else {
+                timerContainer.className = 'timer-container';
+            }
+        }
+
         // Eventos de socket
         socket.on('gameState', (state) => {
+            const previousState = gameState;
             gameState = state;
             updateRosco();
+            updateTimerDisplay();
+            
+            // Check if timer state changed
+            if (!previousState || previousState.timerRunning !== gameState.timerRunning) {
+                if (gameState.timerRunning) {
+                    startTimer();
+                } else {
+                    pauseTimer();
+                }
+            }
         });
 
         // Inicializar
