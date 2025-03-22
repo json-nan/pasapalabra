@@ -115,10 +115,31 @@
             cursor: pointer;
             border: none;
             border-radius: 8px;
-            background-color: var(--light-purple);
-            color: var(--text-light);
             transition: all 0.2s ease;
             box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+            color: var(--text-light);
+        }
+        
+        /* Button specific colors */
+        #startGameBtn {
+            background-color: var(--correct-color);
+        }
+        
+        #pauseGameBtn {
+            background-color: var(--current-color);
+            color: #333;
+        }
+        
+        #correctBtn {
+            background-color: var(--correct-color);
+        }
+        
+        #incorrectBtn {
+            background-color: var(--incorrect-color);
+        }
+        
+        #resetBtn {
+            background-color: var(--light-purple);
         }
 
         .action-buttons button:hover:not([disabled]) {
@@ -146,6 +167,29 @@
         .copy-link:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Timer styles */
+        #gameTimer {
+            background-color: var(--light-purple);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            margin-left: 15px;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .timer-normal {
+            color: var(--text-light);
+        }
+        
+        .timer-warning {
+            color: var(--current-color);
+        }
+        
+        .timer-danger {
+            color: var(--incorrect-color);
+            animation: pulse 1s infinite;
         }
 
         .error-container {
@@ -220,7 +264,9 @@
 
         <div id="gameContainer" style="display: none;">
             <div class="game-header">
-                <div class="game-id">Juego: <span id="currentGameId"></span></div>
+                <div class="game-id">Juego: <span id="currentGameId"></span>
+                    <span id="gameTimer" class="timer-normal">04:00</span>
+                </div>
                 <div class="game-links">
                     <button id="copyControlLink" class="copy-link">Copiar enlace del panel</button>
                     <button id="copyOBSLink" class="copy-link">Copiar enlace para OBS</button>
@@ -246,6 +292,7 @@
         const socket = io();
         let gameId = null;
         let gameState = {};
+        let timerInterval = null;
 
         // Elementos DOM
         const errorContainer = document.getElementById('errorContainer');
@@ -399,18 +446,100 @@
             pauseGameBtn.disabled = true; // Disable pause button after reset
         };
 
+        function findNextPendingLetter(referenceLetter) {
+            if (!gameState || !gameState.letters || !referenceLetter) return null;
+            
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const referenceIndex = alphabet.indexOf(referenceLetter);
+            
+            for (let i = referenceIndex + 1; i < alphabet.length; i++) {
+                const letter = alphabet[i];
+                if (gameState.letters[letter] && gameState.letters[letter].status === 'pending') {
+                    return letter;
+                }
+            }
+            
+            return null;
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function updateTimer() {
+            if (!gameState || gameState.timerSeconds <= 0) {
+                pauseTimer();
+                return;
+            }
+            
+            if (gameState.timerRunning) {
+                gameState.timerSeconds--;
+                socket.emit('updateTimerSeconds', {
+                    gameId,
+                    seconds: gameState.timerSeconds
+                });
+            }
+            
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const gameTimer = document.getElementById('gameTimer');
+            if (!gameTimer || !gameState) return;
+            
+            const minutes = Math.floor(gameState.timerSeconds / 60);
+            const remainingSeconds = gameState.timerSeconds % 60;
+            const formattedTime = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            
+            gameTimer.textContent = formattedTime;
+            
+            if (gameState.timerSeconds <= 60) {
+                gameTimer.className = 'timer-danger';
+            } else if (gameState.timerSeconds <= 120) {
+                gameTimer.className = 'timer-warning';
+            } else {
+                gameTimer.className = 'timer-normal';
+            }
+        }
+
         // WebSocket event listeners
         socket.on('gameState', (state) => {
+            const previousState = gameState;
             gameState = state;
             updateUI();
+            updateTimerDisplay();
             
-            // Update button states based on timer state
             if (gameState.timerRunning) {
+                if (!timerInterval) {
+                    startTimer();
+                }
                 startGameBtn.disabled = true;
                 pauseGameBtn.disabled = false;
             } else {
-                startGameBtn.disabled = false; // Enable start button (acts as resume)
+                pauseTimer();
+                startGameBtn.disabled = false; 
                 pauseGameBtn.disabled = true;
+            }
+            
+            if (previousState && previousState.currentLetter && 
+                !gameState.currentLetter && 
+                previousState.letters && 
+                gameState.letters && 
+                previousState.letters[previousState.currentLetter].status === 'current' && 
+                gameState.letters[previousState.currentLetter].status === 'correct') {
+                
+                const nextLetter = findNextPendingLetter(previousState.currentLetter);
+                if (nextLetter) {
+                    setTimeout(() => {
+                        socket.emit('nextLetter', { gameId, letter: nextLetter });
+                    }, 300);
+                }
             }
         });
 
@@ -421,6 +550,11 @@
         // Inicializar
         setupPage();
         initializeLetterGrid();
+        
+        // Initialize timer if game is already running
+        if (gameState && gameState.timerRunning) {
+            startTimer();
+        }
     </script>
 </body>
 
