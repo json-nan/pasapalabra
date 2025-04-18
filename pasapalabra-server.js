@@ -12,6 +12,7 @@ app.use(express.static('public'));
 
 // Almacén de múltiples juegos
 const games = {};
+const socketToRoom = {};
 
 // Función para crear un nuevo juego
 function createNewGame(gameId) {
@@ -47,6 +48,7 @@ io.on('connection', (socket) => {
     }
     
     socket.join(gameId);
+    socketToRoom[socket.id] = gameId;
     socket.emit('gameState', games[gameId]);
   });
   
@@ -125,7 +127,24 @@ io.on('connection', (socket) => {
     
     io.to(gameId).emit('gameState', games[gameId]);
   });
+
+  socket.on('disconnect', () => {
+    console.log('Un cliente se ha desconectado');
+    const gameId = socketToRoom[socket.id];
+    if (!gameId) return;
+    
+      const room = io.sockets.adapter.rooms.get(gameId);
+
+    if (!room || room.size === 0) {
+    console.log(`Sala ${gameId} está vacía. Eliminando...`);
+    delete games[gameId];
+  }
+
+  delete socketToRoom[socket.id]; // limpieza
+  });
 });
+
+
 
 const PORT = process.env.PORT || 3000;
 
