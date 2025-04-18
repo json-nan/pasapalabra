@@ -127,6 +127,11 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3000, () => {
-  console.log('Servidor escuchando en http://localhost:3000');
+const PORT = process.env.PORT || 3000;
+
+server.listen({
+  port: PORT,
+  host: '0.0.0.0'
+}, () => {
+  console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });
