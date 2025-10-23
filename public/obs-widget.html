@@ -254,7 +254,7 @@
         const socket = io();
         let gameState = {};
         let gameId = null;
-        let timerInterval = null;
+        // Timer is now managed by the server
 
         // Elementos DOM
         const gameTitle = document.getElementById('gameTitle');
@@ -349,41 +349,7 @@
             });
         }
 
-        // Funciones del temporizador
-        function startTimer() {
-            clearInterval(timerInterval);
-            timerInterval = setInterval(updateTimer, 1000);
-        }
-
-        function pauseTimer() {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-
-        function resetTimer() {
-            // This is now handled by the server
-            pauseTimer();
-            updateTimerDisplay();
-        }
-
-        function updateTimer() {
-            if (!gameState || gameState.timerSeconds <= 0) {
-                pauseTimer();
-                return;
-            }
-            
-            // Decrease timer only if it's running
-            if (gameState.timerRunning) {
-                gameState.timerSeconds--;
-                // Update server with new time
-                socket.emit('updateTimerSeconds', {
-                    gameId,
-                    seconds: gameState.timerSeconds
-                });
-            }
-            
-            updateTimerDisplay();
-        }
+        // Timer functions removed - server now manages the timer
 
         function updateTimerDisplay() {
             if (!gameState) return;
@@ -412,14 +378,7 @@
             updateTimerDisplay();
             updateScore();
             
-            // Check if timer state changed
-            if (!previousState || previousState.timerRunning !== gameState.timerRunning) {
-                if (gameState.timerRunning) {
-                    startTimer();
-                } else {
-                    pauseTimer();
-                }
-            }
+            // Timer state changes are now handled by server broadcasts
         });
 
         socket.on('letterResult', (data) => {
