@@ -391,6 +391,12 @@
             showGameFinished(game);
         });
 
+        socket.on('error', (message) => {
+            console.error('Server error:', message);
+            // For OBS widget, we'll just log errors to console
+            // to avoid disrupting the stream with alerts
+        });
+
         function updateScore() {
             if (gameState && gameState.score !== undefined) {
                 scoreValue.textContent = gameState.score;

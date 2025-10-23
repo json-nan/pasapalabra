@@ -139,6 +139,17 @@ io.on('connection', (socket) => {
       
       const game = games[gameId];
       
+      // Validar que la letra existe y está disponible (status 'pending')
+      if (!game.letters[letter]) {
+        socket.emit('error', 'Letra no encontrada en el juego');
+        return;
+      }
+      
+      if (game.letters[letter].status !== 'pending') {
+        socket.emit('error', 'Letra no disponible');
+        return;
+      }
+      
       // Restablecer la letra actual si existe
       if (game.currentLetter) {
         game.letters[game.currentLetter].status = 'pending';
