@@ -15,6 +15,8 @@
             --incorrect-color: #D64550;
             --incorrect-glow: #B13A45;
             --text-light: #f8f5fd;
+            --background-dark: rgba(20, 20, 30, 0.9);
+            --border-glow: rgba(255, 255, 255, 0.1);
         }
 
         body {
@@ -23,6 +25,10 @@
             overflow: hidden;
             background-color: transparent;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
 
         .rosco-container {
@@ -30,23 +36,26 @@
             height: 500px;
             position: relative;
             margin: 90px auto;
-            filter: drop-shadow(0 0 15px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.4));
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+            border-radius: 50%;
         }
 
         .letter-circle {
-            width: 44px;
-            height: 44px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             position: absolute;
             font-weight: bold;
-            font-size: 22px;
+            font-size: 24px;
             color: var(--text-light);
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3), inset 0 0 5px rgba(255, 255, 255, 0.2);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.1);
         }
 
         .pending {
@@ -55,40 +64,47 @@
         }
 
         .current {
-            background-color: var(--current-color);
+            background: linear-gradient(135deg, var(--current-color), #FFE55C);
             color: #333;
-            box-shadow: 0 0 15px var(--current-glow), inset 0 0 8px rgba(255, 255, 255, 0.5);
-            animation: pulse 1.5s infinite ease-in-out;
+            box-shadow: 0 0 25px var(--current-glow), inset 0 0 12px rgba(255, 255, 255, 0.6);
+            animation: pulse 1.5s infinite ease-in-out, glow 2s infinite alternate;
             z-index: 1;
-            transform: scale(1.1);
+            transform: scale(1.15);
+            border: 3px solid rgba(255, 255, 255, 0.3);
         }
 
         .correct {
-            background-color: var(--correct-color);
-            box-shadow: 0 0 10px var(--correct-glow), inset 0 0 5px rgba(255, 255, 255, 0.3);
+            background: linear-gradient(135deg, var(--correct-color), #5BC8A4);
+            box-shadow: 0 0 20px var(--correct-glow), inset 0 0 8px rgba(255, 255, 255, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: correctPulse 0.6s ease-out;
         }
 
         .incorrect {
-            background-color: var(--incorrect-color);
-            box-shadow: 0 0 10px var(--incorrect-glow), inset 0 0 5px rgba(255, 255, 255, 0.3);
+            background: linear-gradient(135deg, var(--incorrect-color), #E74C3C);
+            box-shadow: 0 0 20px var(--incorrect-glow), inset 0 0 8px rgba(255, 255, 255, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: incorrectShake 0.6s ease-out;
         }
 
         .game-title {
             text-align: center;
             margin-top: 10px;
             color: var(--text-light);
-            background-color: rgba(45, 27, 78, 0.8);
-            padding: 8px 18px;
-            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(45, 27, 78, 0.9), rgba(69, 41, 112, 0.9));
+            padding: 12px 24px;
+            border-radius: 15px;
             display: inline-block;
             position: absolute;
             top: 15px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 18px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(110, 68, 166, 0.3);
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(110, 68, 166, 0.4);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .error-message {
@@ -106,20 +122,44 @@
             border: 1px solid rgba(110, 68, 166, 0.3);
         }
 
+        .streaming-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .streaming-mode .rosco-container {
+            filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.6));
+        }
+
+        .streaming-mode .game-title,
+        .streaming-mode .timer-container,
+        .streaming-mode .score-container {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9));
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        }
+
         .timer-container {
             position: absolute;
             top: 20px;
             right: 20px;
-            background-color: rgba(45, 27, 78, 0.8);
+            background: linear-gradient(135deg, rgba(45, 27, 78, 0.9), rgba(69, 41, 112, 0.9));
             color: var(--text-light);
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 28px;
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-size: 32px;
             font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(110, 68, 166, 0.3);
-            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(110, 68, 166, 0.4);
+            transition: all 0.4s ease;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .timer-warning {
@@ -131,6 +171,29 @@
             color: var(--incorrect-color);
             text-shadow: 0 0 5px rgba(214, 69, 80, 0.5);
             animation: pulse 1s infinite;
+        }
+
+        .score-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(45, 27, 78, 0.9), rgba(69, 41, 112, 0.9));
+            color: var(--text-light);
+            padding: 12px 20px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(110, 68, 166, 0.4);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .score-value {
+            font-size: 24px;
+            color: var(--current-color);
+            text-shadow: 0 0 10px var(--current-glow);
         }
 
         @keyframes pulse {
@@ -147,13 +210,39 @@
                 box-shadow: 0 0 8px var(--current-glow), inset 0 0 8px rgba(255, 255, 255, 0.5);
             }
         }
+
+        @keyframes glow {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.2); }
+        }
+
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes incorrectShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
     </style>
 </head>
 
 <body>
+    <div id="streamingOverlay" class="streaming-overlay" style="display: none;"></div>
     <div id="gameTitle" class="game-title" style="display: none;"></div>
     <div class="rosco-container" id="rosco"></div>
     <div id="timerContainer" class="timer-container" style="display: none;">04:00</div>
+    <div id="scoreContainer" class="score-container" style="display: none;">
+        Puntuación: <span id="scoreValue" class="score-value">0</span>
+    </div>
     <div id="errorMessage" class="error-message" style="display: none;">
         No se ha especificado un ID de juego.
         <br>
@@ -165,7 +254,7 @@
         const socket = io();
         let gameState = {};
         let gameId = null;
-        let timerInterval = null;
+        // Timer is now managed by the server
 
         // Elementos DOM
         const gameTitle = document.getElementById('gameTitle');
@@ -173,6 +262,8 @@
         const errorMessage = document.getElementById('errorMessage');
         const correctUrl = document.getElementById('correctUrl');
         const timerContainer = document.getElementById('timerContainer');
+        const scoreContainer = document.getElementById('scoreContainer');
+        const scoreValue = document.getElementById('scoreValue');
 
         // Obtener el ID del juego desde la URL
         function getGameIdFromUrl() {
@@ -180,9 +271,16 @@
             return urlParams.get('id');
         }
 
+        // Verificar si está en modo streaming
+        function isStreamingMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('streaming') === 'true';
+        }
+
         // Configurar la página basada en el ID del juego
         function setupPage() {
             gameId = getGameIdFromUrl();
+            const streamingMode = isStreamingMode();
 
             if (gameId) {
                 socket.emit('joinGame', gameId);
@@ -190,7 +288,15 @@
                 gameTitle.style.display = 'inline-block';
                 errorMessage.style.display = 'none';
                 timerContainer.style.display = 'block';
+                scoreContainer.style.display = 'block';
                 document.title = `Pasapalabras - ${gameId}`;
+                
+                // Activar modo streaming si está especificado
+                if (streamingMode) {
+                    document.body.classList.add('streaming-mode');
+                    document.getElementById('streamingOverlay').style.display = 'block';
+                }
+                
                 createRosco();
             } else {
                 errorMessage.style.display = 'block';
@@ -243,41 +349,7 @@
             });
         }
 
-        // Funciones del temporizador
-        function startTimer() {
-            clearInterval(timerInterval);
-            timerInterval = setInterval(updateTimer, 1000);
-        }
-
-        function pauseTimer() {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-
-        function resetTimer() {
-            // This is now handled by the server
-            pauseTimer();
-            updateTimerDisplay();
-        }
-
-        function updateTimer() {
-            if (!gameState || gameState.timerSeconds <= 0) {
-                pauseTimer();
-                return;
-            }
-            
-            // Decrease timer only if it's running
-            if (gameState.timerRunning) {
-                gameState.timerSeconds--;
-                // Update server with new time
-                socket.emit('updateTimerSeconds', {
-                    gameId,
-                    seconds: gameState.timerSeconds
-                });
-            }
-            
-            updateTimerDisplay();
-        }
+        // Timer functions removed - server now manages the timer
 
         function updateTimerDisplay() {
             if (!gameState) return;
@@ -304,16 +376,97 @@
             gameState = state;
             updateRosco();
             updateTimerDisplay();
+            updateScore();
             
-            // Check if timer state changed
-            if (!previousState || previousState.timerRunning !== gameState.timerRunning) {
-                if (gameState.timerRunning) {
-                    startTimer();
-                } else {
-                    pauseTimer();
-                }
-            }
+            // Timer state changes are now handled by server broadcasts
         });
+
+        socket.on('letterResult', (data) => {
+            // Play sound effect (if available)
+            playSoundEffect(data.result);
+        });
+
+        socket.on('gameFinished', (game) => {
+            // Show final score animation
+            showGameFinished(game);
+        });
+
+        socket.on('error', (message) => {
+            console.error('Server error:', message);
+            // For OBS widget, we'll just log errors to console
+            // to avoid disrupting the stream with alerts
+        });
+
+        function updateScore() {
+            if (gameState && gameState.score !== undefined) {
+                scoreValue.textContent = gameState.score;
+            }
+        }
+
+        function playSoundEffect(result) {
+            // Create audio context for sound effects
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                if (result === 'correct') {
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+                } else {
+                    oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.1);
+                }
+                
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } catch (e) {
+                // Audio not supported or blocked
+            }
+        }
+
+        function showGameFinished(game) {
+            // Add a visual indicator that the game is finished
+            const finishedOverlay = document.createElement('div');
+            finishedOverlay.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, rgba(45, 27, 78, 0.95), rgba(69, 41, 112, 0.95));
+                color: var(--text-light);
+                padding: 30px;
+                border-radius: 20px;
+                text-align: center;
+                font-size: 24px;
+                font-weight: bold;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(10px);
+                border: 2px solid rgba(110, 68, 166, 0.4);
+                z-index: 1000;
+                animation: fadeIn 0.5s ease-in;
+            `;
+            finishedOverlay.innerHTML = `
+                <div>¡JUEGO TERMINADO!</div>
+                <div style="margin-top: 10px; font-size: 18px;">Puntuación Final: <span style="color: var(--current-color);">${game.score}</span></div>
+                <div style="margin-top: 5px; font-size: 16px;">Correctas: ${game.correctCount} | Incorrectas: ${game.incorrectCount}</div>
+            `;
+            
+            document.body.appendChild(finishedOverlay);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                if (finishedOverlay.parentNode) {
+                    finishedOverlay.parentNode.removeChild(finishedOverlay);
+                }
+            }, 5000);
+        }
 
         // Inicializar
         setupPage();

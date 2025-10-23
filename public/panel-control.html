@@ -39,16 +39,18 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 25px;
-            padding: 15px;
-            background-color: var(--light-purple);
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            background: linear-gradient(135deg, var(--light-purple), var(--accent-purple));
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.1);
         }
 
         .game-id {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: bold;
             color: var(--text-light);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .game-links {
@@ -64,19 +66,21 @@
         }
 
         .letter-button {
-            padding: 15px 10px;
-            font-size: 18px;
+            padding: 18px 12px;
+            font-size: 20px;
             cursor: pointer;
-            border: none;
-            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
             text-align: center;
-            transition: all 0.2s ease;
-            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         .letter-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.3);
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
         }
 
         .pending {
@@ -85,20 +89,26 @@
         }
 
         .current {
-            background-color: var(--current-color);
+            background: linear-gradient(135deg, var(--current-color), #FFE55C);
             color: #333;
             font-weight: bold;
-            animation: pulse 1.5s infinite;
+            animation: pulse 1.5s infinite, glow 2s infinite alternate;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 20px var(--current-color);
         }
 
         .correct {
-            background-color: var(--correct-color);
+            background: linear-gradient(135deg, var(--correct-color), #5BC8A4);
             color: var(--text-light);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: correctPulse 0.6s ease-out;
         }
 
         .incorrect {
-            background-color: var(--incorrect-color);
+            background: linear-gradient(135deg, var(--incorrect-color), #E74C3C);
             color: var(--text-light);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: incorrectShake 0.6s ease-out;
         }
 
         .action-buttons {
@@ -192,6 +202,16 @@
             animation: pulse 1s infinite;
         }
 
+        .score-display {
+            background-color: var(--accent-purple);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            margin-left: 15px;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
         .error-container {
             padding: 30px;
             text-align: center;
@@ -248,6 +268,36 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+
+        @keyframes glow {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.2); }
+        }
+
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes incorrectShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-3px); }
+            75% { transform: translateX(3px); }
+        }
+
+        @keyframes slideIn {
+            0% { transform: translateX(100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        .correct-feedback {
+            animation: correctPulse 0.6s ease-out;
+        }
+
+        .incorrect-feedback {
+            animation: incorrectShake 0.6s ease-out;
+        }
     </style>
 </head>
 
@@ -266,6 +316,7 @@
             <div class="game-header">
                 <div class="game-id">Juego: <span id="currentGameId"></span>
                     <span id="gameTimer" class="timer-normal">04:00</span>
+                    <span id="gameScore" class="score-display">Puntuación: <span id="scoreValue">0</span></span>
                 </div>
                 <div class="game-links">
                     <button id="copyControlLink" class="copy-link">Copiar enlace del panel</button>
@@ -292,7 +343,7 @@
         const socket = io();
         let gameId = null;
         let gameState = {};
-        let timerInterval = null;
+        // Timer is now managed by the server
 
         // Elementos DOM
         const errorContainer = document.getElementById('errorContainer');
@@ -309,6 +360,7 @@
         const correctBtn = document.getElementById('correctBtn');
         const incorrectBtn = document.getElementById('incorrectBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const scoreValue = document.getElementById('scoreValue');
 
         // Obtener el ID del juego desde la URL
         function getGameIdFromUrl() {
@@ -407,6 +459,11 @@
                 correctBtn.disabled = true;
                 incorrectBtn.disabled = true;
             }
+
+            // Actualizar puntuación
+            if (gameState.score !== undefined) {
+                scoreValue.textContent = gameState.score;
+            }
         }
 
         // Eventos de los botones de acción
@@ -462,32 +519,7 @@
             return null;
         }
 
-        function startTimer() {
-            clearInterval(timerInterval);
-            timerInterval = setInterval(updateTimer, 1000);
-        }
-
-        function pauseTimer() {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-
-        function updateTimer() {
-            if (!gameState || gameState.timerSeconds <= 0) {
-                pauseTimer();
-                return;
-            }
-            
-            if (gameState.timerRunning) {
-                gameState.timerSeconds--;
-                socket.emit('updateTimerSeconds', {
-                    gameId,
-                    seconds: gameState.timerSeconds
-                });
-            }
-            
-            updateTimerDisplay();
-        }
+        // Timer functions removed - server now manages the timer
 
         function updateTimerDisplay() {
             const gameTimer = document.getElementById('gameTimer');
@@ -515,14 +547,11 @@
             updateUI();
             updateTimerDisplay();
             
+            // Update button states based on server timer state
             if (gameState.timerRunning) {
-                if (!timerInterval) {
-                    startTimer();
-                }
                 startGameBtn.disabled = true;
                 pauseGameBtn.disabled = false;
             } else {
-                pauseTimer();
                 startGameBtn.disabled = false; 
                 pauseGameBtn.disabled = true;
             }
@@ -543,6 +572,56 @@
             }
         });
 
+        socket.on('letterResult', (data) => {
+            // Show visual feedback for letter result
+            showLetterFeedback(data.letter, data.result);
+        });
+
+        socket.on('gameFinished', (game) => {
+            // Show game finished notification
+            showGameFinishedNotification(game);
+        });
+
+        function showLetterFeedback(letter, result) {
+            const letterBtn = document.querySelector(`[data-letter="${letter}"]`);
+            if (letterBtn) {
+                // Add temporary class for animation
+                letterBtn.classList.add(result === 'correct' ? 'correct-feedback' : 'incorrect-feedback');
+                setTimeout(() => {
+                    letterBtn.classList.remove('correct-feedback', 'incorrect-feedback');
+                }, 600);
+            }
+        }
+
+        function showGameFinishedNotification(game) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, var(--correct-color), #5BC8A4);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+                z-index: 1000;
+                font-weight: bold;
+                animation: slideIn 0.5s ease-out;
+            `;
+            notification.innerHTML = `
+                <div>¡JUEGO TERMINADO!</div>
+                <div style="margin-top: 5px; font-size: 14px;">Puntuación: ${game.score}</div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+
         socket.on('error', (message) => {
             alert(`Error: ${message}`);
         });
@@ -551,10 +630,7 @@
         setupPage();
         initializeLetterGrid();
         
-        // Initialize timer if game is already running
-        if (gameState && gameState.timerRunning) {
-            startTimer();
-        }
+        // Timer initialization removed - server manages timer
     </script>
 </body>
 
