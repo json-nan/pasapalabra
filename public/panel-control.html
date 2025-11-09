@@ -306,10 +306,11 @@
         <div id="errorContainer" class="error-container" style="display: none;">
             <h2>No se ha especificado un ID de juego</h2>
             <p>Por favor, introduce un ID para crear o unirte a un juego:</p>
-            <div>
+            <form id="joinGameForm" onsubmit="return false;" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;">
                 <input type="text" id="gameIdInput" placeholder="ID del juego">
-                <button id="joinGameBtn">Acceder</button>
-            </div>
+                <input type="number" id="timerSecondsInput" placeholder="Tiempo (segundos)" min="10" max="3600" value="240">
+                <button id="joinGameBtn" type="submit">Acceder</button>
+            </form>
         </div>
 
         <div id="gameContainer" style="display: none;">
@@ -341,6 +342,8 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        const DEFAULT_TIMER_SECONDS = 240;
+        const MAX_TIMER_SECONDS = 3600;
         let gameId = null;
         let gameState = {};
         // Timer is now managed by the server
@@ -349,7 +352,9 @@
         const errorContainer = document.getElementById('errorContainer');
         const gameContainer = document.getElementById('gameContainer');
         const gameIdInput = document.getElementById('gameIdInput');
+        const joinGameForm = document.getElementById('joinGameForm');
         const joinGameBtn = document.getElementById('joinGameBtn');
+        const timerSecondsInput = document.getElementById('timerSecondsInput');
         const currentGameIdSpan = document.getElementById('currentGameId');
         const copyControlLink = document.getElementById('copyControlLink');
         const copyOBSLink = document.getElementById('copyOBSLink');
@@ -368,49 +373,128 @@
             return urlParams.get('id');
         }
 
+        function getTimerSecondsFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const secondsParam = urlParams.get('seconds');
+            if (!secondsParam) return null;
+            const parsedValue = parseInt(secondsParam, 10);
+            if (!Number.isNaN(parsedValue) && parsedValue > 0 && parsedValue <= MAX_TIMER_SECONDS) {
+                return parsedValue;
+            }
+            return null;
+        }
+
+        function formatSeconds(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function getTimerSecondsFromInput() {
+            if (!timerSecondsInput) return null;
+            const parsedValue = parseInt(timerSecondsInput.value, 10);
+            if (!Number.isNaN(parsedValue) && parsedValue > 0 && parsedValue <= MAX_TIMER_SECONDS) {
+                return parsedValue;
+            }
+            return null;
+        }
+
+        function setTimerSecondsInputValue(value) {
+            if (!timerSecondsInput) return;
+            timerSecondsInput.value = value;
+        }
+
         // Configurar la página basada en el ID del juego
         function setupPage() {
             gameId = getGameIdFromUrl();
+            const timerSeconds = getTimerSecondsFromUrl();
 
             if (gameId) {
                 // Si tenemos un ID, unirse al juego
-                socket.emit('joinGame', gameId);
+                if (timerSeconds !== null) {
+                    socket.emit('joinGame', { gameId, timerSeconds });
+                } else {
+                    socket.emit('joinGame', gameId);
+                }
                 currentGameIdSpan.textContent = gameId;
                 gameContainer.style.display = 'block';
                 errorContainer.style.display = 'none';
                 document.title = `Panel de Control - Pasapalabras (${gameId})`;
+                if (timerSeconds !== null) {
+                    const gameTimer = document.getElementById('gameTimer');
+                    if (gameTimer) {
+                        gameTimer.textContent = formatSeconds(timerSeconds);
+                    }
+                }
             } else {
                 // Si no hay ID, mostrar formulario para ingresar uno
                 gameContainer.style.display = 'none';
                 errorContainer.style.display = 'block';
+                const initialSeconds = timerSeconds ?? DEFAULT_TIMER_SECONDS;
+                setTimerSecondsInputValue(initialSeconds);
             }
         }
 
         // Unirse a un juego con el ID ingresado
-        joinGameBtn.onclick = () => {
+        function navigateToGame() {
             const newGameId = gameIdInput.value.trim();
-            if (newGameId) {
-                window.location.href = `?id=${encodeURIComponent(newGameId)}`;
+            if (!newGameId) return;
+
+            const timerSeconds = getTimerSecondsFromInput();
+            const params = new URLSearchParams();
+            params.set('id', newGameId);
+            if (timerSeconds !== null) {
+                params.set('seconds', timerSeconds.toString());
             }
-        };
+            window.location.href = `?${params.toString()}`;
+        }
+
+        if (joinGameForm) {
+            joinGameForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                navigateToGame();
+            });
+        }
+
+        if (joinGameBtn) {
+            joinGameBtn.onclick = navigateToGame;
+        }
 
         // También permitir unirse presionando Enter
         gameIdInput.addEventListener('keyup', (event) => {
             if (event.key === 'Enter') {
-                joinGameBtn.click();
+                navigateToGame();
             }
         });
 
+        if (timerSecondsInput) {
+            timerSecondsInput.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    navigateToGame();
+                }
+            });
+        }
+
         // Copiar enlaces
         copyControlLink.onclick = () => {
-            const url = `${window.location.origin}/panel-control.html?id=${encodeURIComponent(gameId)}`;
+            const params = new URLSearchParams();
+            params.set('id', gameId);
+            if (gameState && typeof gameState.initialTimerSeconds === 'number') {
+                params.set('seconds', gameState.initialTimerSeconds);
+            }
+            const url = `${window.location.origin}/panel-control.html?${params.toString()}`;
             navigator.clipboard.writeText(url)
                 .then(() => alert('Enlace del panel copiado al portapapeles'))
                 .catch(err => console.error('Error al copiar: ', err));
         };
 
         copyOBSLink.onclick = () => {
-            const url = `${window.location.origin}/obs-widget.html?id=${encodeURIComponent(gameId)}`;
+            const params = new URLSearchParams();
+            params.set('id', gameId);
+            if (gameState && typeof gameState.initialTimerSeconds === 'number') {
+                params.set('seconds', gameState.initialTimerSeconds);
+            }
+            const url = `${window.location.origin}/obs-widget.html?${params.toString()}`;
             navigator.clipboard.writeText(url)
                 .then(() => alert('Enlace para OBS copiado al portapapeles'))
                 .catch(err => console.error('Error al copiar: ', err));
@@ -531,9 +615,15 @@
             
             gameTimer.textContent = formattedTime;
             
-            if (gameState.timerSeconds <= 60) {
+            const initialTimerSeconds = (typeof gameState.initialTimerSeconds === 'number' && gameState.initialTimerSeconds > 0)
+                ? gameState.initialTimerSeconds
+                : DEFAULT_TIMER_SECONDS;
+            const warningThreshold = Math.max(1, Math.ceil(initialTimerSeconds * 0.5));
+            const dangerThreshold = Math.max(1, Math.ceil(initialTimerSeconds * 0.25));
+
+            if (gameState.timerSeconds <= dangerThreshold) {
                 gameTimer.className = 'timer-danger';
-            } else if (gameState.timerSeconds <= 120) {
+            } else if (gameState.timerSeconds <= warningThreshold) {
                 gameTimer.className = 'timer-warning';
             } else {
                 gameTimer.className = 'timer-normal';

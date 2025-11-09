@@ -77,11 +77,10 @@ Los colores se pueden personalizar modificando las variables CSS en `:root`:
 ```
 
 ### Temporizador
-El tiempo por defecto es de 4 minutos. Se puede cambiar en el servidor:
-
-```javascript
-timerSeconds: 4 * 60, // Cambiar aquí
-```
+- El tiempo por defecto es de 4 minutos (240 segundos).
+- Puedes personalizar la duración al crear o unirte a un juego desde el panel añadiendo el parámetro `seconds` en la URL o usando el formulario inicial.
+- Ejemplo: `http://localhost:3000/panel-control.html?id=TU_JUEGO&seconds=180`.
+- Este valor se sincroniza automáticamente con el widget de OBS y el panel de control.
 
 ## 🔧 Configuración para OBS
 

@@ -252,6 +252,8 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        const DEFAULT_TIMER_SECONDS = 240;
+        const MAX_TIMER_SECONDS = 3600;
         let gameState = {};
         let gameId = null;
         // Timer is now managed by the server
@@ -277,19 +279,44 @@
             return urlParams.get('streaming') === 'true';
         }
 
+        function getTimerSecondsFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const secondsParam = urlParams.get('seconds');
+            if (!secondsParam) return null;
+            const parsedValue = parseInt(secondsParam, 10);
+            if (!Number.isNaN(parsedValue) && parsedValue > 0 && parsedValue <= MAX_TIMER_SECONDS) {
+                return parsedValue;
+            }
+            return null;
+        }
+
+        function formatSeconds(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
         // Configurar la página basada en el ID del juego
         function setupPage() {
             gameId = getGameIdFromUrl();
             const streamingMode = isStreamingMode();
+            const timerSeconds = getTimerSecondsFromUrl();
 
             if (gameId) {
-                socket.emit('joinGame', gameId);
+                if (timerSeconds !== null) {
+                    socket.emit('joinGame', { gameId, timerSeconds });
+                } else {
+                    socket.emit('joinGame', gameId);
+                }
                 gameTitle.textContent = `Pasapalabra: ${gameId}`;
                 gameTitle.style.display = 'inline-block';
                 errorMessage.style.display = 'none';
                 timerContainer.style.display = 'block';
                 scoreContainer.style.display = 'block';
                 document.title = `Pasapalabras - ${gameId}`;
+                if (timerSeconds !== null) {
+                    timerContainer.textContent = formatSeconds(timerSeconds);
+                }
                 
                 // Activar modo streaming si está especificado
                 if (streamingMode) {
@@ -300,7 +327,7 @@
                 createRosco();
             } else {
                 errorMessage.style.display = 'block';
-                correctUrl.textContent = `${window.location.origin}/obs-widget.html?id=NOMBRE_DEL_JUEGO`;
+                correctUrl.textContent = `${window.location.origin}/obs-widget.html?id=NOMBRE_DEL_JUEGO&seconds=${DEFAULT_TIMER_SECONDS}`;
             }
         }
 
@@ -361,9 +388,15 @@
             timerContainer.textContent = formattedTime;
             
             // Add visual indicators when time is running low
-            if (gameState.timerSeconds <= 60) { // Last minute
+            const initialTimerSeconds = (typeof gameState.initialTimerSeconds === 'number' && gameState.initialTimerSeconds > 0)
+                ? gameState.initialTimerSeconds
+                : DEFAULT_TIMER_SECONDS;
+            const warningThreshold = Math.max(1, Math.ceil(initialTimerSeconds * 0.5));
+            const dangerThreshold = Math.max(1, Math.ceil(initialTimerSeconds * 0.25));
+
+            if (gameState.timerSeconds <= dangerThreshold) {
                 timerContainer.className = 'timer-container timer-danger';
-            } else if (gameState.timerSeconds <= 120) { // Last 2 minutes
+            } else if (gameState.timerSeconds <= warningThreshold) {
                 timerContainer.className = 'timer-container timer-warning';
             } else {
                 timerContainer.className = 'timer-container';
