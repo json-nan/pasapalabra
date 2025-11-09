@@ -201,19 +201,21 @@ io.on("connection", (socket) => {
         return;
       }
 
+      const previousLetter = game.currentLetter;
+
       // Restablecer la letra actual si existe
-      if (game.currentLetter) {
-        game.letters[game.currentLetter].status = "pending";
+      if (previousLetter) {
+        game.letters[previousLetter].status = "pending";
+      }
+
+      // Si el temporizador estaba en marcha, pausar al cambiar de letra
+      if (previousLetter && game.timerRunning) {
+        game.timerRunning = false;
+        pauseGameTimer(gameId);
       }
 
       game.currentLetter = letter;
       game.letters[letter].status = "current";
-
-      // Si el temporizador estaba pausado, reanudar
-      if (!game.timerRunning) {
-        game.timerRunning = true;
-        startGameTimer(gameId);
-      }
 
       // Emitir a todos los clientes subscritos a este juego
       io.to(gameId).emit("gameState", game);

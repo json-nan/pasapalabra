@@ -147,6 +147,11 @@
         #incorrectBtn {
             background-color: var(--incorrect-color);
         }
+
+        #skipBtn {
+            background-color: var(--current-color);
+            color: #333;
+        }
         
         #resetBtn {
             background-color: var(--light-purple);
@@ -334,6 +339,7 @@
                 <button id="pauseGameBtn" disabled>Pausar Juego</button>
                 <button id="correctBtn" disabled>Correcta</button>
                 <button id="incorrectBtn" disabled>Incorrecta</button>
+                <button id="skipBtn" disabled>Pasar</button>
                 <button id="resetBtn">Reiniciar Juego</button>
             </div>
         </div>
@@ -364,6 +370,7 @@
         const pauseGameBtn = document.getElementById('pauseGameBtn');
         const correctBtn = document.getElementById('correctBtn');
         const incorrectBtn = document.getElementById('incorrectBtn');
+        const skipBtn = document.getElementById('skipBtn');
         const resetBtn = document.getElementById('resetBtn');
         const scoreValue = document.getElementById('scoreValue');
 
@@ -538,10 +545,13 @@
                 currentLetterSpan.textContent = gameState.currentLetter;
                 correctBtn.disabled = false;
                 incorrectBtn.disabled = false;
+                const nextLetter = findNextPendingLetter(gameState.currentLetter);
+                skipBtn.disabled = !nextLetter;
             } else {
                 currentLetterSpan.textContent = 'Ninguna';
                 correctBtn.disabled = true;
                 incorrectBtn.disabled = true;
+                skipBtn.disabled = true;
             }
 
             // Actualizar puntuación
@@ -566,6 +576,14 @@
                     gameId,
                     letter: gameState.currentLetter
                 });
+            }
+        };
+
+        skipBtn.onclick = () => {
+            if (!gameState.currentLetter) return;
+            const nextLetter = findNextPendingLetter(gameState.currentLetter);
+            if (nextLetter) {
+                socket.emit('nextLetter', { gameId, letter: nextLetter });
             }
         };
 
@@ -594,6 +612,13 @@
             const referenceIndex = alphabet.indexOf(referenceLetter);
             
             for (let i = referenceIndex + 1; i < alphabet.length; i++) {
+                const letter = alphabet[i];
+                if (gameState.letters[letter] && gameState.letters[letter].status === 'pending') {
+                    return letter;
+                }
+            }
+            
+            for (let i = 0; i < referenceIndex; i++) {
                 const letter = alphabet[i];
                 if (gameState.letters[letter] && gameState.letters[letter].status === 'pending') {
                     return letter;
